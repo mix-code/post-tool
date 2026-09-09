@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mixcode-tool-v3';
+const CACHE_NAME = 'mixcode-tool-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

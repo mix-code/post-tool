@@ -196,11 +196,24 @@ function mixcodeApp() {
 
       if (!logo || !logo.complete || logo.naturalWidth === 0) return;
 
-      const targetH = H * 0.11;
+      // Keep the logo in a dedicated header safe zone.
+      const maxLogoH = H * 0.085;
+      const maxLogoW = W * 0.42;
+
       const ratio = logo.naturalWidth / logo.naturalHeight;
-      const targetW = targetH * ratio;
+
+      let targetH = maxLogoH;
+      let targetW = targetH * ratio;
+
+      // Prevent very wide uploaded logos from becoming huge.
+      if (targetW > maxLogoW) {
+        targetW = maxLogoW;
+        targetH = targetW / ratio;
+      }
+
       const x = (W - targetW) / 2;
-      const y = H * 0.035;
+      const y = H * 0.045;
+
       ctx.drawImage(logo, x, y, targetW, targetH);
     },
 
@@ -218,14 +231,22 @@ function mixcodeApp() {
     },
 
     // Returns the Y centre for the headline based on the headlinePosition setting.
-    // 'top'    → just below the logo zone  (~18 % from top)
+    // 'top'    → just below the logo zone  (~20 % from top)
     // 'center' → true vertical centre of the image
     // 'bottom' → just above the footer zone (~80 % from top)
     headlineY(H) {
       switch (this.headlinePosition) {
-        case 'top': return H * 0.185;
-        case 'bottom': return H * 0.80;
-        default: return H * 0.50;   // 'center'
+        case 'top':
+          // Clearly below the logo/header safe zone.
+          return H * 0.235;
+
+        case 'bottom':
+          // Stay comfortably above the footer.
+          return H * 0.76;
+
+        default:
+          // True visual center.
+          return H * 0.50;
       }
     },
 
@@ -246,66 +267,187 @@ function mixcodeApp() {
       return `"${font}", -apple-system, "Segoe UI", Arial, sans-serif`;
     },
 
+    isArabicText(text) {
+      return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(text);
+    },
+
+    textDirection(text) {
+      return this.isArabicText(text) ? 'rtl' : 'ltr';
+    },
+
     drawHeadlinePlain(ctx, W, H, text) {
       ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+
       const fontSize = 52;
       const fontFam = this.getFontFamilyString();
+
       ctx.font = `800 ${fontSize}px ${fontFam}`;
       ctx.fillStyle = this.headlineTextColor();
+
+      const direction = this.textDirection(text);
+
+      // Canvas supports direction in modern browsers.
+      ctx.direction = direction;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
       const y = this.headlineY(H);
       const maxWidth = W * 0.86;
-      this.wrapText(ctx, text.toUpperCase(), W / 2, y, maxWidth, fontSize * 1.15);
+
+      // IMPORTANT:
+      // Never uppercase Arabic or mixed text.
+      const displayText = this.isArabicText(text)
+        ? text
+        : text.toUpperCase();
+
+      this.wrapText(
+        ctx,
+        displayText,
+        W / 2,
+        y,
+        maxWidth,
+        fontSize * 1.18
+      );
+
       ctx.restore();
     },
 
     drawHeadlineBubble(ctx, W, H, text) {
       ctx.save();
+
       const fontFam = this.getFontFamilyString();
-      ctx.font = `700 40px ${fontFam}`;
+      const fontSize = 40;
+
+      ctx.font = `700 ${fontSize}px ${fontFam}`;
+
+      const direction = this.textDirection(text);
+      ctx.direction = direction;
+
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      const paddingX = 36;
-      const metrics = ctx.measureText(text);
-      const bw = Math.min(metrics.width + paddingX * 2, W * 0.86);
-      const bh = 70;
+      const maxWidth = W * 0.78;
+      const paddingX = 42;
+      const paddingY = 24;
+      const lineHeight = fontSize * 1.2;
+
+      const words = text.trim().split(/\s+/);
+      const lines = [];
+      let current = '';
+
+      for (const word of words) {
+        const test = current
+          ? `${current} ${word}`
+          : word;
+
+        if (
+          ctx.measureText(test).width > maxWidth &&
+          current
+        ) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = test;
+        }
+      }
+
+      if (current) {
+        lines.push(current);
+      }
+
+      const textWidth = Math.min(
+        maxWidth,
+        Math.max(
+          ...lines.map(line => ctx.measureText(line).width)
+        )
+      );
+
+      const textHeight = lines.length * lineHeight;
+
+      const bw = textWidth + paddingX * 2;
+      const bh = textHeight + paddingY * 2;
+
       const bx = (W - bw) / 2;
-      // Centre the bubble vertically around the position chosen by the user.
       const by = this.headlineY(H) - bh / 2;
 
-      ctx.fillStyle = this.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.85)';
-      ctx.strokeStyle = this.isDark ? BRAND.lightGradA : BRAND.darkGradA;
+      ctx.fillStyle = this.isDark
+        ? 'rgba(255,255,255,0.10)'
+        : 'rgba(255,255,255,0.85)';
+
+      ctx.strokeStyle = this.isDark
+        ? BRAND.lightGradA
+        : BRAND.darkGradA;
+
       ctx.lineWidth = 3;
-      this.roundRect(ctx, bx, by, bw, bh, bh / 2);
+
+      this.roundRect(
+        ctx,
+        bx,
+        by,
+        bw,
+        bh,
+        Math.min(28, bh / 2)
+      );
+
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = this.headlineTextColor();
-      ctx.fillText(text, W / 2, by + bh / 2 + 2);
+
+      const startY =
+        by +
+        bh / 2 -
+        textHeight / 2 +
+        lineHeight / 2;
+
+      lines.forEach((line, index) => {
+        ctx.fillText(
+          line,
+          W / 2,
+          startY + index * lineHeight
+        );
+      });
+
       ctx.restore();
     },
 
     // Small text-wrapping helper shared by drawHeadlinePlain.
     wrapText(ctx, text, cx, cy, maxWidth, lineHeight) {
-      const words = text.split(' ');
+      const words = text.trim().split(/\s+/);
       const lines = [];
+
       let current = '';
-      for (const w of words) {
-        const test = current ? current + ' ' + w : w;
-        if (ctx.measureText(test).width > maxWidth && current) {
+
+      for (const word of words) {
+        const test = current
+          ? `${current} ${word}`
+          : word;
+
+        if (
+          ctx.measureText(test).width > maxWidth &&
+          current
+        ) {
           lines.push(current);
-          current = w;
+          current = word;
         } else {
           current = test;
         }
       }
-      if (current) lines.push(current);
+
+      if (current) {
+        lines.push(current);
+      }
 
       const totalH = lines.length * lineHeight;
       const startY = cy - totalH / 2 + lineHeight / 2;
-      lines.forEach((line, i) => ctx.fillText(line, cx, startY + i * lineHeight));
+
+      lines.forEach((line, index) => {
+        ctx.fillText(
+          line,
+          cx,
+          startY + index * lineHeight
+        );
+      });
     },
 
     // Small rounded-rectangle helper shared by drawHeadlineBubble.
