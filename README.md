@@ -53,7 +53,3 @@ These fonts are fully offline; no external CDN is required.
   - Middle column: AI prompt & background upload (panels 4‑5).
   - Right column: sticky preview (panel 6).
 - The project uses a Service Worker and `manifest.json` **only when served over http/https**; they are ignored on `file://`.
-
-## License
-
----
