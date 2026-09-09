@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#12578f" />
+    <title>MixCode Post Generator</title>
+    <link rel="stylesheet" href="style.css" />
+    <script defer src="assets/alpine.min.js"></script>
+    <script src="assets/logos.js"></script>
+    <script src="app.js"></script>
+    <script>
+      // Service Worker & Manifest only work over http/https protocols (browsers block them on file://)
+      if (window.location.protocol.startsWith("http")) {
+        const manifestLink = document.createElement("link");
+        manifestLink.rel = "manifest";
+        manifestLink.href = "manifest.json";
+        document.head.appendChild(manifestLink);
+
+        if ("serviceWorker" in navigator) {
+          window.addEventListener("load", () => {
+            navigator.serviceWorker.register("./sw.js").catch((err) => {
+              console.log("Service Worker skipped:", err);
+            });
+          });
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="wrap" x-data="mixcodeApp()" x-init="init()">
+      <header class="app-head">
+        <div><h1>MixCode Post Generator</h1></div>
+        <div class="tag">
+          Prompt builder + on-brand overlay, per the Social Media Rulebook
+        </div>
+      </header>
+
+      <div class="grid">
+        <!-- LEFT COLUMN: headline, style, footer & logo -->
+        <div class="left-col">
+          <!-- 1. Content -->
+          <div class="panel">
+            <h2>1 · Headline &amp; content</h2>
+
+            <div class="field">
+              <label for="headline">Headline</label>
+              <input
+                type="text"
+                id="headline"
+                placeholder="e.g. Automate Your Business / الأتمتة في الأعمال"
+                x-model="headline"
+                @input="render()"
+              />
+            </div>
+
+            <label class="checkbox-row">
+              <input
+                type="checkbox"
+                x-model="useCloudBubble"
+                @change="render()"
+              />
+              <span>Show headline in a cloud bubble</span>
+            </label>
+
+            <!-- Headline position -->
+            <div class="field" style="margin-top: 14px">
+              <label>Headline position</label>
+              <div class="pos-toggle">
+                <button
+                  :class="headlinePosition === 'top' ? 'pos-active' : ''"
+                  @click="headlinePosition = 'top'; render()"
+                >
+                  Top
+                </button>
+                <button
+                  :class="headlinePosition === 'center' ? 'pos-active' : ''"
+                  @click="headlinePosition = 'center'; render()"
+                >
+                  Center
+                </button>
+                <button
+                  :class="headlinePosition === 'bottom' ? 'pos-active' : ''"
+                  @click="headlinePosition = 'bottom'; render()"
+                >
+                  Bottom
+                </button>
+              </div>
+            </div>
+
+            <!-- Headline colour -->
+            <div class="field">
+              <label>Headline colour</label>
+              <div class="color-row">
+                <input
+                  type="color"
+                  id="headline-color"
+                  :value="headlineColor || (isDark ? '#ffffff' : '#06304f')"
+                  @input="headlineColor = $event.target.value; render()"
+                />
+                <span
+                  class="color-hex"
+                  x-text="headlineColor || '(theme default)'"
+                ></span>
+                <button
+                  class="secondary color-reset"
+                  @click="headlineColor = ''; render()"
+                  title="Reset to theme default"
+                >
+                  &times; Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- Headline font family -->
+            <div class="field">
+              <label for="headline-font">Headline Font (Offline)</label>
+              <select
+                id="headline-font"
+                x-model="headlineFont"
+                @change="render()"
+              >
+                <optgroup label="🌟 Best Bilingual (Arabic &amp; English)">
+                  <option value="Cairo">
+                    Cairo (Bold Tech &amp; Agency — كايرو)
+                  </option>
+                  <option value="Tajawal">
+                    Tajawal (Clean &amp; Modern — تجوال)
+                  </option>
+                  <option value="Alexandria">
+                    Alexandria (Geometric Punchy — الإسكندرية)
+                  </option>
+                  <option value="Almarai">
+                    Almarai (Corporate Professional — المراعي)
+                  </option>
+                </optgroup>
+                <optgroup label="✨ Best English / Latin Only">
+                  <option value="Montserrat">
+                    Montserrat (Bold Marketing &amp; Impact)
+                  </option>
+                  <option value="Inter">Inter (Silicon Valley Tech UI)</option>
+                </optgroup>
+                <optgroup label="⚙️ System Fallback">
+                  <option value="System">System Sans-serif</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div class="field" style="margin-top: 14px">
+              <label for="post-content"
+                >Your post content (merged directly into the AI prompt)</label
+              >
+              <textarea
+                id="post-content"
+                placeholder="Paste your own post text here — Arabic, English, whatever you already wrote. It gets included in the AI prompt as-is so the image matches what your post is actually about."
+                x-model="postContent"
+                @input="render()"
+                style="min-height: 90px"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- 2. Style -->
+          <div class="panel">
+            <h2>2 · Style</h2>
+            <div class="style-toggle">
+              <button
+                :class="isDark ? 'active-dark' : ''"
+                @click="setStyle('A')"
+              >
+                Style A — Dark
+              </button>
+              <button
+                :class="!isDark ? 'active-light' : ''"
+                @click="setStyle('B')"
+              >
+                Style B — Light
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Footer & logo -->
+          <div class="panel">
+            <h2>3 · Footer &amp; logo</h2>
+
+            <div class="row-inline">
+              <div class="field">
+                <label for="footer-website">Website text</label>
+                <input
+                  type="text"
+                  id="footer-website"
+                  x-model="footerWebsite"
+                  @input="render()"
+                />
+              </div>
+              <div class="field">
+                <label for="footer-phone">Phone text</label>
+                <input
+                  type="text"
+                  id="footer-phone"
+                  x-model="footerPhone"
+                  @input="render()"
+                />
+              </div>
+            </div>
+            <button class="secondary" @click="resetFooter()">
+              Reset to default
+            </button>
+
+            <label class="checkbox-row" style="margin-top: 10px">
+              <input
+                type="checkbox"
+                x-model="smoothFooter"
+                @change="render()"
+              />
+              <span
+                >Smooth overlay footer (fades into background, like the
+                header)</span
+              >
+            </label>
+
+            <div class="field" style="margin-top: 14px">
+              <label>Logo</label>
+              <label class="upload-zone">
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="onLogoUpload($event)"
+                />
+                <span
+                  x-text="customLogoImg ? 'Custom logo in use — click to replace' : 'Using default MixCode logo — click to replace'"
+                ></span>
+              </label>
+              <button class="secondary" @click="resetLogo()">
+                Reset to default logo
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MIDDLE COLUMN: AI prompt + background upload -->
+        <div class="mid-col">
+          <!-- 4. AI image prompt -->
+          <div class="panel">
+            <h2>4 · AI image prompt</h2>
+            <div class="prompt-box" x-text="buildPrompt()"></div>
+            <button
+              class="copy-btn"
+              @click="copyPrompt()"
+              x-text="copyLabel"
+            ></button>
+            <div class="small-note">
+              Paste into Midjourney / DALL·E / Ideogram. Generates the
+              background + scene only — no text, no logo — for reliability, per
+              the rulebook's fallback guidance.
+            </div>
+          </div>
+
+          <!-- 5. Background image -->
+          <div class="panel">
+            <h2>5 · Background image</h2>
+            <label class="upload-zone">
+              <input
+                type="file"
+                accept="image/*"
+                @change="onBackgroundUpload($event)"
+              />
+              <span
+                x-text="bgImage ? 'Background loaded — click to replace' : 'Click to upload your AI-generated background (4:5, 1080×1350 recommended)'"
+              ></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: sticky canvas preview -->
+        <div class="preview-col">
+          <div class="preview-sticky">
+            <div class="panel">
+              <h2>6 · Preview &amp; export</h2>
+              <div class="canvas-stage">
+                <div id="stage-wrap">
+                  <canvas
+                    x-ref="canvas"
+                    width="1080"
+                    height="1350"
+                    id="post-canvas"
+                  ></canvas>
+                </div>
+                <div class="actions-row">
+                  <button class="primary" @click="downloadPng()">
+                    Download PNG
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

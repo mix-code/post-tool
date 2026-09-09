@@ -1,0 +1,16 @@
+{
+  "name": "MixCode Post Generator",
+  "short_name": "MixCode Tool",
+  "description": "Prompt builder + on-brand overlay generator",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#06304f",
+  "theme_color": "#12578f",
+  "icons": [
+    {
+      "src": "assets/logo-color.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
