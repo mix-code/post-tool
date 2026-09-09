@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mixcode-tool-v2';
+const CACHE_NAME = 'mixcode-tool-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -48,27 +48,33 @@ self.addEventListener('activate', (event) => {
 // Fetch event - Cache-first with network fallback
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+      return fetch(event.request)
+        .then((networkResponse) => {
+          // Check if the request scheme is supported (http/https) and response is valid
+          const isSupportedScheme = event.request.url.startsWith('http');
+          const isValidResponse = networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic';
+
+          if (!isSupportedScheme || !isValidResponse) {
+            return networkResponse;
+          }
+
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
           return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+        }).catch(() => {
+          // Fallback for HTML documents if offline
+          if (event.request.destination === 'document') {
+            return caches.match('./index.html');
+          }
         });
-        return networkResponse;
-      }).catch(() => {
-        // Fallback for HTML documents if offline
-        if (event.request.destination === 'document') {
-          return caches.match('./index.html');
-        }
-      });
     })
   );
 });
